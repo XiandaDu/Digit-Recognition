@@ -1,61 +1,95 @@
-import os
-import cv2
-import numpy as np
-import tensorflow as tf
-import matplotlib.pyplot as plt
+from torchvision import datasets
+from torchvision.transforms import ToTensor
+from torch.utils.data import DataLoader
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
-print("Welcome to the NeuralNine (c) Handwritten Digits Recognition v0.1")
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+        self.conv2_drop = nn.Dropout2d()
+        self.fcl = nn.Linear(320, 50)
+        self.fc2 = nn.Linear(50, 10)
 
-# Decide if to load an existing model or to train a new one
-train_new_model = True
+    def forward(self, x):
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+        x = x.view(-1, 320)
+        x = F.relu(self.fcl(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return F.softmax(x)
 
-if train_new_model:
-    # Loading the MNIST data set with samples and splitting it
-    mnist = tf.keras.datasets.mnist
-    (X_train, y_train), (X_test, y_test) = mnist.load_data()
 
-    # Normalizing the data (making length = 1)
-    X_train = tf.keras.utils.normalize(X_train, axis=1)
-    X_test = tf.keras.utils.normalize(X_test, axis=1)
 
-    # Create a neural network model
-    # Add one flattened input layer for the pixels
-    # Add two dense hidden layers
-    # Add one dense output layer for the 10 digits
-    model = tf.keras.models.Sequential()
-    model.add(tf.keras.layers.Flatten())
-    model.add(tf.keras.layers.Dense(units=128, activation=tf.nn.relu))
-    model.add(tf.keras.layers.Dense(units=128, activation=tf.nn.relu))
-    model.add(tf.keras.layers.Dense(units=10, activation=tf.nn.softmax))
 
-    # Compiling and optimizing model
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
-    # Training the model
-    model.fit(X_train, y_train, epochs=3)
+def train(epoch):
+    model.train()
+    for batch_idx, (data, target) in enumerate(loaders['train']):
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        output = model(data)
+        loss = loss_fn(output, target)
+        loss.backward()
+        optimizer.step()
+        if batch_idx % 20 == 0:
+            print(f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(loaders["train"])} ({100. * batch_idx / len(loaders["train"]):.0f}%)]\t{loss.item():.6f}')
 
-    # Evaluating the model
-    val_loss, val_acc = model.evaluate(X_test, y_test)
-    print(val_loss)
-    print(val_acc)
 
-    # Saving the model
-    model.save('handwritten_digits.model')
-else:
-    # Load the model
-    model = tf.keras.models.load_model('handwritten_digits.model')
+def test():
+    model.eval()
+    test_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for data, target in loaders['test']:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            test_loss += loss_fn(output, target).item()
+            pred = output.argmax(dim=1, keepdim=True)
+            correct += pred.eq(target.view_as(pred)).sum().item()
+    test_loss /= len(loaders['test'].dataset)
+    print(f'\nTest set: Average loss: {test_loss:.4f}, Accuracy {correct}/{len(loaders["test"].dataset)} ({100. * correct / len(loaders["test"].dataset):.0f}%\n)')
 
-# Load custom images and predict them
-image_number = 1
-while os.path.isfile('digits/digit{}.png'.format(image_number)):
-    try:
-        img = cv2.imread('digits/digit{}.png'.format(image_number))[:,:,0]
-        img = np.invert(np.array([img]))
-        prediction = model.predict(img)
-        print("The number is probably a {}".format(np.argmax(prediction)))
-        plt.imshow(img[0], cmap=plt.cm.binary)
-        plt.show()
-        image_number += 1
-    except:
-        print("Error reading image! Proceeding with next image...")
-        image_number += 1
+
+if __name__ == "__main__":
+    train_data = datasets.MNIST(
+        root='data',
+        train=True,
+        transform=ToTensor(),
+        download=True
+    )
+    test_data = datasets.MNIST(
+        root='data',
+        train=False,
+        transform=ToTensor(),
+        download=True
+    )
+
+    loaders = {
+        'train': DataLoader(
+            train_data,
+            batch_size=100,
+            shuffle=True,
+            num_workers=1
+        ),
+        'test': DataLoader(
+            test_data,
+            batch_size=100,
+            shuffle=True,
+            num_workers=1
+        )
+    }
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = CNN().to(device)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    loss_fn = nn.CrossEntropyLoss()
+    for epoch in range(1, 21):
+        train(epoch)
+        test()
+    # 保存模型的参数
+    torch.save(model.state_dict(), 'model_weights.pth')
