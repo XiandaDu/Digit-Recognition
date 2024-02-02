@@ -91,5 +91,5 @@ if __name__ == "__main__":
     for epoch in range(1, 21):
         train(epoch)
         test()
-    # 保存模型的参数
-    torch.save(model.state_dict(), 'model_weights.pth')
+    # Save model params
+    torch.save(model.state_dict(), 'frontend/digit_recog_frontend/src/model_weights.pth')
