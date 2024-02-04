@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import tensorflow as tf
 
 
 class CNN(nn.Module):
@@ -18,8 +17,8 @@ class CNN(nn.Module):
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(tf.nn.max_pool2d(self.conv1(x), 2))
-        x = F.relu(tf.nn.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
         x = x.view(-1, 320)
         x = F.relu(self.fcl(x))
         x = F.dropout(x, training=self.training)
