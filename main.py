@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import tensorflow as tf
+
 
 class CNN(nn.Module):
     def __init__(self):
@@ -16,16 +18,13 @@ class CNN(nn.Module):
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+        x = F.relu(tf.nn.max_pool2d(self.conv1(x), 2))
+        x = F.relu(tf.nn.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
         x = x.view(-1, 320)
         x = F.relu(self.fcl(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.softmax(x)
-
-
-
 
 
 def train(epoch):
@@ -92,4 +91,4 @@ if __name__ == "__main__":
         train(epoch)
         test()
     # Save model params
-    torch.save(model.state_dict(), 'frontend/digit_recog_frontend/src/model_weights.pth')
+    torch.save(model.state_dict(), './model_weights.pth')
