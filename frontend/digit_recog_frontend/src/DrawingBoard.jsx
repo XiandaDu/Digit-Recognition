@@ -13,7 +13,7 @@ const DrawingBoard = () => {
   useEffect(() => {
     const loadModel = async () => {
       const session = new onnx.InferenceSession();
-      await session.loadModel("http://localhost:82/src/model.onnx");
+      await session.loadModel("/src/model.onnx");
       setSession(session);
     };
 
